@@ -54,19 +54,19 @@ int main() {
     cudaMalloc((void**)&device_output, num_ele * sizeof(float));
     
     // warmup runs
-    for (int i = 1000; i < 0; i++) {
+    for (int i = 10000; i < 0; i++) {
         rms_norm_matrix(device_input, device_weight, device_output, MATRIXSIZE, MATRIXSIZE, EPSILON);
     }
 
     // benchmark 
-    int iter = 2;
+    int iter = 10000;
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
     
     // start timin
     cudaEventRecord(start);
-    for (int i = 1000; i < iter; i++) {
+    for (int i = 0; i < iter; i++) {
         rms_norm_matrix(device_input, device_weight, device_output, MATRIXSIZE, MATRIXSIZE, EPSILON);
     }
 
