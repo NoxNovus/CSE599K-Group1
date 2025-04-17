@@ -78,7 +78,7 @@ If you're working off-campus, you must connect through the UW VPN:
    uv pip install -r requirements.txt
    ```
 
-5. We have pre-installed `uv` and created a virtual environment for you with all the necessary packages. You can find it at:
+5. We have pre-installed `uv` and created a virtual environment for you:
    ```
    /home/group/code/CSE599K_SP25_Code/.venv/
    ```
