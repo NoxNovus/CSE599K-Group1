@@ -76,7 +76,6 @@ class Engine:
             attn_output = attn_output.permute(1, 0, 2) # (seq_len, num_qo_heads, head_dim)
             
             attn_output = attn_output.reshape(-1, self.num_qo_heads * self.head_dim) # (seq_len, num_qo_heads * head_dim)
-            print("attn output shape: ", attn_output.shape)
             prefill_output = attn_output.matmul(self.weights["o_proj_weight"][current_layer].t()) + hidden_state
             
             # --- Feed-Forward Network (FFN) Block ---
@@ -89,7 +88,6 @@ class Engine:
             
             activation_output = up_proj_output * torch.nn.functional.silu(gate_proj_output)
             hidden_state = activation_output.matmul(self.weights["down_proj_weight"][current_layer].t()) + prefill_output
-            print("hidden state: ", hidden_state.shape)
 
         # --- Final Layer Normalization and Output Projection ---
         rms = torch.sqrt(torch.mean(hidden_state ** 2, dim=-1, keepdim=True) + 1e-5)
