@@ -3,7 +3,7 @@ import torch
 from transformers import AutoTokenizer
 import sys
 sys.path.append("../")  # Adjust the path to import the helper module
-from helper import WeightManager, apply_rope, extract_model_weights
+from helper import WeightManager, apply_batched_rope, extract_model_weights
 
 
 class Engine:
@@ -32,34 +32,121 @@ class Engine:
         
         self.kv_cache = {}
     
-    def run(self, input_ids, prefill = True):
+    def run(self, input_ids, padding_mask, prefill = True):
         ########################################
-        # Complete this function
+        # Already implemented
         ########################################
-        pass
-    
-    def generate_batched(self, input_string, rounds=20):
-        input_ids_list = []
-        for input_string in input_string:
-            input_ids = self.tokenizer(input_string, return_tensors="pt").input_ids[0]
-            input_ids_list.append(input_ids)
+        input_tensor = input_ids.to(dtype=torch.int32, device="cuda")
+        hidden_state = self.weights["embedding"][input_tensor]
+        
+        batch_len = input_tensor.shape[0]
+
+        for current_layer in range(self.layers):
+            # --- Self-Attention Block ---
+            rms = torch.sqrt(torch.mean(hidden_state ** 2, dim=-1, keepdim=True) + 1e-5)
+            normalized_x = hidden_state / rms
+            x = normalized_x.to(torch.float16) * self.weights["layernormAttn_weight"][current_layer]
             
-        output_ids_list = input_ids_list  
-        new_token = self.run(input_ids_list)
-        for i in range(len(input_ids_list)):
-            output_ids_list[i] = torch.cat((output_ids_list[i], new_token[i:i+1]), dim=0)
+            k = x.matmul(self.weights["self_attn_k_proj_weight"][current_layer].t())
+            v = x.matmul(self.weights["self_attn_v_proj_weight"][current_layer].t())
+            q = x.matmul(self.weights["self_attn_q_proj_weight"][current_layer].t())
+            
+
+            if (prefill):
+                apply_batched_rope(q, output=q, head_dim=self.head_dim, offset=0)
+                apply_batched_rope(k, output=k, head_dim=self.head_dim, offset=0)
+            else:
+                pos = self.kv_cache[current_layer]["k"].shape[1]
+                apply_batched_rope(q, output=q, head_dim=self.head_dim, offset=pos)
+                apply_batched_rope(k, output=k, head_dim=self.head_dim, offset=pos)
+
+            scale = 1.0 / (self.head_dim ** 0.5)
+            group_size = self.num_qo_heads // self.num_kv_heads
+            sub_q = q.view(batch_len, -1, self.num_qo_heads, self.head_dim) # (seq_len, num_qo_heads, head_dim)
+            sub_k = k.view(batch_len, -1, self.num_kv_heads, self.head_dim) # (seq_len, num_kv_heads, head_dim)
+            sub_v = v.view(batch_len, -1, self.num_kv_heads, self.head_dim) # (seq_len, num_kv_heads, head_dim)
+
+            if (prefill):
+                self.kv_cache[current_layer] = {"k" : sub_k, "v" : sub_v}
+            else:
+                sub_k = torch.cat([self.kv_cache[current_layer]["k"], sub_k], axis = 1)
+                sub_v = torch.cat([self.kv_cache[current_layer]["v"], sub_v], axis = 1)
+                self.kv_cache[current_layer]["k"] = sub_k
+                self.kv_cache[current_layer]["v"] = sub_v
+            
+            
+            sub_k = sub_k.repeat_interleave(group_size, dim=2)
+            sub_v = sub_v.repeat_interleave(group_size, dim=2)
+            
+            sub_q_t = sub_q.permute(0, 2, 1, 3) # (num_qo_heads, seq_len, head_dim)
+            sub_k_t = sub_k.permute(0, 2, 1, 3) # (num_qo_heads, seq_len, head_dim)
+
+            n_q = sub_q_t.shape[2]
+            n_k = sub_k_t.shape[2]
+
+            scores = torch.matmul(sub_q_t, sub_k_t.transpose(-2, -1)) * scale # (num_qo_heads, seq_len, seq_len)
+            
+            if (prefill):
+                causal_mask = torch.tril(torch.ones(n_q, n_k, dtype=torch.bool, device=scores.device)) # (seq_len, seq_len)
+            else:
+                # fake mask
+                causal_mask = torch.ones((n_q, n_k), dtype=torch.bool, device=scores.device) 
+            causal_mask = causal_mask.expand(batch_len, self.num_qo_heads, -1, -1)
+            causal_mask = causal_mask & padding_mask[:, None, None, :].bool()
+            scores = scores.masked_fill(~causal_mask, float("-inf")) # (batch_size, num_qo_heads, seq_len, seq_len)
+            
+            attn_weights = torch.softmax(scores, dim=-1)
+            
+            v_t = sub_v.permute(0, 2, 1, 3) # (num_qo_heads, seq_len, head_dim)
+            attn_output = torch.matmul(attn_weights, v_t) # (num_qo_heads, seq_len, head_dim)
+            attn_output = attn_output.permute(0, 2, 1, 3) # (batch_size, seq_len, num_qo_heads, head_dim)
+            
+            attn_output = attn_output.reshape(batch_len, -1, self.num_qo_heads * self.head_dim) # (seq_len, num_qo_heads * head_dim)
+            prefill_output = attn_output.matmul(self.weights["o_proj_weight"][current_layer].t()) + hidden_state
+            
+            # --- Feed-Forward Network (FFN) Block ---
+            rms = torch.sqrt(torch.mean(prefill_output ** 2, dim=-1, keepdim=True) + 1e-5)
+            normalized_x = prefill_output / rms
+            layernormFFN_output = normalized_x.to(torch.float16) * self.weights["layernormFFN_weight"][current_layer]
+            
+            up_proj_output = layernormFFN_output.matmul(self.weights["up_proj_weight"][current_layer].t())
+            gate_proj_output = layernormFFN_output.matmul(self.weights["gate_proj_weight"][current_layer].t())
+            
+            activation_output = up_proj_output * torch.nn.functional.silu(gate_proj_output)
+            hidden_state = activation_output.matmul(self.weights["down_proj_weight"][current_layer].t()) + prefill_output
+
+        # --- Final Layer Normalization and Output Projection ---
+        rms = torch.sqrt(torch.mean(hidden_state ** 2, dim=-1, keepdim=True) + 1e-5)
+        normalized_x = hidden_state / rms
+        model_output = normalized_x.to(torch.float16) * self.weights["model_layernorm_weight"]
+        logits = model_output.matmul(self.weights["lm_head_weight"].t())
+        sample_output = torch.argmax(logits, dim=-1)
+
+        return sample_output[:,-1]
+    
+    def generate_batched(self, input_string_list, rounds=20):
+        print(input_string_list)
+        #padding
+        self.tokenizer.pad_token_id = self.tokenizer.eos_token_id
+
+        tokenizer = self.tokenizer(input_string_list, return_tensors="pt", padding=True)
+        input_ids = tokenizer.input_ids.cuda()
+        # need to ignore paddings
+        padding_mask = tokenizer.attention_mask.cuda()
+
+        output_ids = input_ids
+        new_token = self.run(input_ids, padding_mask, prefill=True)
+        output_ids = torch.cat((output_ids, new_token.unsqueeze(1)), dim=1)
 
         for round in range(rounds - 1):
             print(f"Round {round}")
-            input_ids_list = []
-            for output_ids in output_ids_list:
-                input_ids_list.append(output_ids[-1:])
-            new_token = self.run(input_ids_list, prefill=False)
-            
-            for i in range(len(input_ids_list)):
-                output_ids_list[i] = torch.cat((output_ids_list[i], new_token[i:i+1]), dim=0)
+            # extend padding mask to not zero out newly gen tokens
+            padding_mask = torch.cat((padding_mask, torch.ones((len(input_string_list), 1), device='cuda')), dim = 1)
+            new_token = self.run(output_ids[:, -1:], padding_mask, prefill=False)
+            output_ids = torch.cat((output_ids, new_token.unsqueeze(1)), dim=1)
+
         output_text_list = []
-        for output_ids in output_ids_list:
+        for output_ids in output_ids:
             output_text_list.append(self.tokenizer.decode(output_ids, skip_special_tokens=True))
         return output_text_list
 

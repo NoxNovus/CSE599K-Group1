@@ -123,7 +123,7 @@ class Engine:
         output_ids = input_ids.copy()
 
         new_token = self.run(output_ids, prefill=True)
-
+        output_ids.append(new_token)
         for round in range(rounds - 1):
             print(f"Round {round}")
             new_token = self.run([output_ids[-1]], prefill=False)

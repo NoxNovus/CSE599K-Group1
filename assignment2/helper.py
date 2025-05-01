@@ -79,6 +79,37 @@ def rotate_half(x: torch.Tensor) -> torch.Tensor:
     x2 = x[..., dim // 2:]   # Second half of features
     return torch.cat([-x2, x1], dim=-1)
 
+def apply_batched_rope(x: torch.Tensor, output: torch.Tensor, head_dim: int, offset: int = 0) -> None:
+    batch_size, seq_len, hidden_dim = x.shape
+    device = x.device
+    dtype = x.dtype
+    num_heads = hidden_dim // head_dim
+    # Create positions: shape [seq_len]
+    positions = torch.arange(offset, offset + seq_len, device=device, dtype=dtype)
+
+    base = 500000.0
+    # Compute inverse frequency: shape [head_dim/2]
+    inv_freq = 1.0 / (base ** (torch.arange(0, head_dim, 2, dtype=torch.int64).float().to(device) / head_dim))
+
+    # Compute frequency embeddings
+    with torch.autocast(device_type=device.type, enabled=False):
+        freqs = torch.outer(positions, inv_freq) 
+        # Duplicate frequencies for cos and sin parts:
+        emb = torch.cat((freqs, freqs), dim=-1) 
+        cos = emb.cos()                         
+        sin = emb.sin()                       
+
+    # Reshape for multi-head compatibility:
+    cos = cos.unsqueeze(0).unsqueeze(0)
+    sin = sin.unsqueeze(0).unsqueeze(0)
+
+    # Reshape x for applying RoPE:
+    x = x.reshape(batch_size, seq_len, num_heads, head_dim).transpose(1, 2)
+    # Apply RoPE rotation
+    x_rotated = x * cos + rotate_half(x) * sin
+    # Restore original shape and copy into outpu
+    output.copy_(x_rotated.transpose(1, 2).reshape(batch_size, seq_len, -1).to(dtype=dtype))
+
 def apply_rope(x: torch.Tensor, output: torch.Tensor, head_dim: int, offset: int = 0) -> None:
     """
     Applies RoPE (Rotary Positional Embedding) to the input tensor.
@@ -91,7 +122,7 @@ def apply_rope(x: torch.Tensor, output: torch.Tensor, head_dim: int, offset: int
         head_dim (int): Dimensionality of each attention head.
         offset (int): Positional offset.
     """
-    seq_len, _ = x.shape  # [seq_len, head_dim]
+    seq_len, _ = x.shape  # [seq_len, hidden_dim]
     device = x.device
     dtype = x.dtype
 
