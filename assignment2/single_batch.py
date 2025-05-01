@@ -20,7 +20,7 @@ class Engine:
         self.layers = 32            # Number of transformer layers
 
         # Load the tokenizer for text processing
-        self.tokenizer = AutoTokenizer.from_pretrained("meta-llama/Meta-Llama-3-8B-Instruct")
+        self.tokenizer = AutoTokenizer.from_pretrained("/model/Meta-Llama-3-8B-Instruct")
 
         # Initialize and load model weights using the helper module
         weight_manager = WeightManager()
@@ -33,9 +33,100 @@ class Engine:
     
     def run(self, input_ids, prefill = True):
         ########################################
-        # Complete this function
+        # Already implemented
         ########################################
-        pass
+        input_tensor = torch.tensor(input_ids, dtype=torch.int32, device='cuda')
+        hidden_state = self.weights["embedding"][input_tensor]
+        
+        for current_layer in range(self.layers):
+            # --- Self-Attention Block ---
+            # RMS
+            rms = torch.sqrt(torch.mean(hidden_state ** 2, dim=-1, keepdim=True) + 1e-5)
+            normalized_x = hidden_state / rms
+            x = normalized_x.to(torch.float16) * self.weights["layernormAttn_weight"][current_layer]
+            
+            # KVQ calculations
+            # load from KV cache
+            print("on iter: ", current_layer)
+            print(self.kv_cache)
+            if (len(self.kv_cache) <= current_layer):
+                # do prefil!
+                k = x.matmul(self.weights["self_attn_k_proj_weight"][current_layer].t())
+                v = x.matmul(self.weights["self_attn_v_proj_weight"][current_layer].t())
+                q = x.matmul(self.weights["self_attn_q_proj_weight"][current_layer].t())
+
+                # RoPE on K & Q
+                apply_rope(q, output=q, head_dim=self.head_dim, offset=0)
+                apply_rope(k, output=k, head_dim=self.head_dim, offset=0)
+                self.kv_cache[current_layer] = {"k" : k, "v" : v}
+            else:
+                # do decode step!
+                # load KV cache
+                k = self.kv_cache[current_layer]["k"]
+                v = self.kv_cache[current_layer]["v"]
+                last_token = x[-1]
+                last_q = last_token.matmul(self.weights["self_attn_q_proj_weight"][current_layer].t())
+                last_v = last_token.matmul(self.weights["self_attn_v_proj_weight"][current_layer].t())
+                last_k = last_token.matmul(self.weights["self_attn_k_proj_weight"][current_layer].t())
+                apply_rope(last_q, output=last_q, head_dim=self.head_dim, offset=0)
+                apply_rope(last_k, output=last_k, head_dim=self.head_dim, offset=0)
+                apply_rope(last_v, output=last_v, head_dim=self.head_dim, offset=0)
+                k = torch.cat([k, last_k], dim=0)
+                v = torch.cat([v, last_v], dim=0)
+                self.kv_cache[current_layer]["k"] = k
+                v = self.kv_cache[current_layer]["v"] = v
+                
+            
+            scale = 1.0 / (self.head_dim ** 0.5)
+            # Grouped Query Attention
+            group_size = self.num_qo_heads // self.num_kv_heads
+            
+            sub_q = q.view(-1, self.num_qo_heads, self.head_dim) # (seq_len, num_qo_heads, head_dim)
+            sub_k = k.view(-1, self.num_kv_heads, self.head_dim) # (seq_len, num_kv_heads, head_dim)
+            sub_v = v.view(-1, self.num_kv_heads, self.head_dim) # (seq_len, num_kv_heads, head_dim)
+            
+            n_q = sub_q.shape[0]
+            n_k = sub_k.shape[0]
+            
+            sub_k = sub_k.repeat_interleave(group_size, dim=1)
+            sub_v = sub_v.repeat_interleave(group_size, dim=1)
+            
+            sub_q_t = sub_q.permute(1, 0, 2) # (num_qo_heads, seq_len, head_dim)
+            sub_k_t = sub_k.permute(1, 0, 2) # (num_qo_heads, seq_len, head_dim)
+            
+            scores = torch.matmul(sub_q_t, sub_k_t.transpose(-2, -1)) * scale # (num_qo_heads, seq_len, seq_len)
+            
+            causal_mask = torch.tril(torch.ones(n_q, n_k, dtype=torch.bool, device=scores.device)) # (seq_len, seq_len)
+            scores = scores.masked_fill(~causal_mask.unsqueeze(0), float("-inf")) # (1, seq_len, seq_len)
+            
+            attn_weights = torch.softmax(scores, dim=-1)
+            
+            v_t = sub_v.permute(1, 0, 2) # (num_qo_heads, seq_len, head_dim)
+            attn_output = torch.matmul(attn_weights, v_t) # (num_qo_heads, seq_len, head_dim)
+            attn_output = attn_output.permute(1, 0, 2) # (seq_len, num_qo_heads, head_dim)
+            
+            attn_output = attn_output.reshape(-1, self.num_qo_heads * self.head_dim) # (seq_len, num_qo_heads * head_dim)
+            prefill_output = attn_output.matmul(self.weights["o_proj_weight"][current_layer].t()) + hidden_state
+            
+            # --- Feed-Forward Network (FFN) Block ---
+            rms = torch.sqrt(torch.mean(prefill_output ** 2, dim=-1, keepdim=True) + 1e-5)
+            normalized_x = prefill_output / rms
+            layernormFFN_output = normalized_x.to(torch.float16) * self.weights["layernormFFN_weight"][current_layer]
+            
+            up_proj_output = layernormFFN_output.matmul(self.weights["up_proj_weight"][current_layer].t())
+            gate_proj_output = layernormFFN_output.matmul(self.weights["gate_proj_weight"][current_layer].t())
+            
+            activation_output = up_proj_output * torch.nn.functional.silu(gate_proj_output)
+            hidden_state = activation_output.matmul(self.weights["down_proj_weight"][current_layer].t()) + prefill_output
+
+        # --- Final Layer Normalization and Output Projection ---
+        rms = torch.sqrt(torch.mean(hidden_state ** 2, dim=-1, keepdim=True) + 1e-5)
+        normalized_x = hidden_state / rms
+        model_output = normalized_x.to(torch.float16) * self.weights["model_layernorm_weight"]
+        logits = model_output.matmul(self.weights["lm_head_weight"].t())
+        
+        sample_output = torch.argmax(logits, dim=1)
+        return sample_output[-1].item()
     
     def generate(self, input_string, rounds=20):
         input_ids = self.tokenizer.encode(input_string)
