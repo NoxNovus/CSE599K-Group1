@@ -20,7 +20,7 @@ class Engine:
         self.layers = 32            # Number of transformer layers
 
         # Load the tokenizer for text processing
-        self.tokenizer = AutoTokenizer.from_pretrained("meta-llama/Meta-Llama-3-8B-Instruct")
+        self.tokenizer = AutoTokenizer.from_pretrained("/model/Meta-Llama-3-8B-Instruct")
 
         # Initialize and load model weights using the helper module
         weight_manager = WeightManager()
