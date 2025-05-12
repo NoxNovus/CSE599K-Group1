@@ -3,7 +3,8 @@ import torch
 from transformers import AutoTokenizer
 import sys
 sys.path.append("../")  # Adjust the path to import the helper module
-from helper import WeightManager, apply_batched_rope, extract_model_weights
+from helper import WeightManager, apply_batched_rope, extract_model_weights, prefill_input
+import time
 
 
 class Engine:
@@ -124,13 +125,18 @@ class Engine:
 
         return sample_output[:,-1]
     
-    def generate_batched(self, input_string_list, rounds=20):
-        print(input_string_list)
+    def generate_batched(self, input_string_list, rounds=20, benchmark = False):
+        # print(input_string_list)
         #padding
         self.tokenizer.pad_token_id = self.tokenizer.eos_token_id
 
         tokenizer = self.tokenizer(input_string_list, return_tensors="pt", padding=True)
-        input_ids = tokenizer.input_ids.cuda()
+        input_ids = tokenizer.input_ids
+        if (benchmark):
+            input_ids = input_ids[:, 0:512]
+            assert(len(input_ids[0]) == 512)
+        
+        input_ids = input_ids.cuda()
         # need to ignore paddings
         padding_mask = tokenizer.attention_mask.cuda()
 
@@ -139,7 +145,7 @@ class Engine:
         output_ids = torch.cat((output_ids, new_token.unsqueeze(1)), dim=1)
 
         for round in range(rounds - 1):
-            print(f"Round {round}")
+            # print(f"Round {round}")
             # extend padding mask to not zero out newly gen tokens
             padding_mask = torch.cat((padding_mask, torch.ones((len(input_string_list), 1), device='cuda')), dim = 1)
             new_token = self.run(output_ids[:, -1:], padding_mask, prefill=False)
@@ -149,16 +155,41 @@ class Engine:
         for output_ids in output_ids:
             output_text_list.append(self.tokenizer.decode(output_ids, skip_special_tokens=True))
         return output_text_list
+    
+
+########################################
+# benchmarking
+########################################
+
+def warmup(engine):
+    prompt = "Finish this story: " + prefill_input
+    input_string_list = [prompt for _ in range(1)]
+    output_text = engine.generate_batched(input_string_list, rounds=20)
+
+def benchmark():
+    engine = Engine()
+    warmup(engine)
+    prompt = "Finish this story: " + prefill_input
+    for i in range(0, 6 + 1):
+        num_batch = 2 ** i
+        input_string_list = [prompt for _ in range(num_batch)]
+        start_time = time.time()
+        output_text = engine.generate_batched(input_string_list, rounds=128, benchmark=True)
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        print(str(num_batch) + ",", str(elapsed_time))
+
 
 ########################################
 # Main Loop: Text Generation
 ########################################
 if __name__ == "__main__":
-    input_string = "Hi, who are you?"
-    input_string_list = [input_string for _ in range(10)]
-    another_input_string = "The University of Washington is located in"
-    for _ in range(10):
-        input_string_list.append(another_input_string)
-    engine = Engine()
-    output_text = engine.generate_batched(input_string_list, rounds=20)
-    print("Generated Text:", output_text)
+    benchmark()
+    # input_string = "Hi, who are you?"
+    # input_string_list = [input_string for _ in range(10)]
+    # another_input_string = "The University of Washington is located in"
+    # for _ in range(10):
+    #     input_string_list.append(another_input_string)
+    # engine = Engine()
+    # output_text = engine.generate_batched(input_string_list, rounds=20)
+    # print("Generated Text:", output_text)

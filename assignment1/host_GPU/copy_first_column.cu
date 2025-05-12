@@ -1,19 +1,19 @@
 #include "copy_first_column.h"
 #include <cuda_runtime.h>
-void copy_first_column(float *h_A, float *d_A, int rows, int cols) {
-    // byte‑pitch of each row on host = k * sizeof(float)
-    size_t spitch = cols * sizeof(float);
-    size_t width_bytes = 1 * sizeof(float);
-    size_t height = rows;
-    size_t dpitch = cols * sizeof(float);
+#include <nvtx3/nvToolsExt.h>
+#include <iostream>
 
-    cudaMemcpy2D(
-    d_A,                
-    dpitch,            
-    h_A,                
-    spitch,                 
-    width_bytes,            
-    height,                 
-    cudaMemcpyHostToDevice  
-    );
+void copy_first_column(float *h_A, float *d_A, int rows, int cols) {
+    // convert to cpu list first
+    // summation
+    static float* host_first_column = nullptr;
+    if (host_first_column == nullptr) {
+        cudaMallocHost((void**)&host_first_column, sizeof(float) * rows);
+    }
+
+    for (int i = 0; i < rows; i ++) {
+        host_first_column[i] = h_A[i * cols];
+    }
+    // do the memory copy
+    cudaMemcpy(d_A, host_first_column, sizeof(float) * rows, cudaMemcpyHostToDevice);
 }

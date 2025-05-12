@@ -87,28 +87,28 @@ int main() {
 
 
 
-    // // Run GPU version
-    // rms_norm_vector(device_input, device_weight, device_output, num_ele, EPSILON);
-    // cudaMemcpy(output, device_output, num_ele * sizeof(float), cudaMemcpyDeviceToHost);
+    // Run GPU version
+    rms_norm_vector(device_input, device_weight, device_output, num_ele, EPSILON);
+    cudaMemcpy(output, device_output, num_ele * sizeof(float), cudaMemcpyDeviceToHost);
 
-    // // Run CPU version
-    // float *cpu_output = (float *) malloc(num_ele * sizeof(float));
-    // rms_norm_vector_cpu(vector, weight, cpu_output, cols, EPSILON);
-    // // Compare results (check if they match within a small tolerance)
-    // float max_error = 0.0f;
-    // for (int i = 0; i < num_ele; i++) {
-    //     float error = fabs(output[i] - cpu_output[i]);
-    //     if (error > max_error) {
-    //         max_error = error;
-    //     }
-    // }
+    // Run CPU version
+    float *cpu_output = (float *) malloc(num_ele * sizeof(float));
+    rms_norm_vector_cpu(vector, weight, cpu_output, cols, EPSILON);
+    // Compare results (check if they match within a small tolerance)
+    float max_error = 0.0f;
+    for (int i = 0; i < num_ele; i++) {
+        float error = fabs(output[i] - cpu_output[i]);
+        if (error > max_error) {
+            max_error = error;
+        }
+    }
 
-    // std::cout << "Max difference between CPU and GPU: " << max_error << "\n";
-    // if (max_error < 1e-2f) {
-    //     std::cout << "✅ Results match within tolerance!\n";
-    // } else {
-    //     std::cout << "❌ Results differ significantly!\n";
-    // }
+    std::cout << "Max difference between CPU and GPU: " << max_error << "\n";
+    if (max_error < 1e-2f) {
+        std::cout << "✅ Results match within tolerance!\n";
+    } else {
+        std::cout << "❌ Results differ significantly!\n";
+    }
 
 
     cudaFree(device_input);

@@ -1,7 +1,8 @@
 import torch
+import time
 from transformers import AutoTokenizer
 import sys
-from helper import WeightManager, apply_rope, extract_model_weights
+from helper import WeightManager, apply_rope, extract_model_weights, prefill_input
 
 
 class Engine:
@@ -115,17 +116,20 @@ class Engine:
 
         return sample_output[-1].item()
     
-    def generate(self, input_string, rounds=20):
+    def generate(self, input_string, rounds=20, benchmark = False):
         self.kv_cache = {}
         input_ids = self.tokenizer.encode(input_string)
+        if (benchmark):
+            input_ids = input_ids[0:1024]
+            assert(len(input_ids) == 1024)
 
-        print("Token IDs:", input_ids)
+        # print("Token IDs:", input_ids)
         output_ids = input_ids.copy()
 
         new_token = self.run(output_ids, prefill=True)
         output_ids.append(new_token)
         for round in range(rounds - 1):
-            print(f"Round {round}")
+            # print(f"Round {round}")
             new_token = self.run([output_ids[-1]], prefill=False)
             output_ids.append(new_token)
 
@@ -133,10 +137,29 @@ class Engine:
         return output_text
 
 ########################################
+# benchmarking
+########################################
+
+def warmup(engine):
+    input_string = "Hi, who are you?"
+    output_text = engine.generate(input_string, rounds=20)
+
+def benchmark():
+    engine = Engine()
+    warmup(engine)
+    prompt = "Finish this story: " + prefill_input
+    for output_length in range(128, 2048 + 1, 128):
+        start_time = time.time()
+        output_text = engine.generate(prompt, rounds=output_length, benchmark=True)
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        print(str(output_length) + ",", str(elapsed_time))
+########################################
 # Main Loop: Text Generation
 ########################################
 if __name__ == "__main__":
-    input_string = "Hi, who are you?"
-    engine = Engine()
-    output_text = engine.generate(input_string, rounds=20)
-    print("Generated Text:", output_text)
+    benchmark()
+    # input_string = "Hi, who are you?"
+    # engine = Engine()
+    # output_text = engine.generate(input_string, rounds=20)
+    # print("Generated Text:", output_text)

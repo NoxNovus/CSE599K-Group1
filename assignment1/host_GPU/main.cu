@@ -19,15 +19,15 @@ int main(){
     float* temp_h_A = (float *) malloc(rows * cols * sizeof(float));
     initA(h_A, rows * cols);
     float *d_A;
-    cudaMalloc(&d_A, rows * cols * sizeof(float));
+    cudaMalloc(&d_A, rows * sizeof(float));
 
     // warmup
-    for (int i = 0; i < 10000; i++) {
+    for (int i = 0; i < 100; i++) {
+        cudaFree(0);
         copy_first_column(h_A, d_A, rows, cols);
     }
     
-    // benchmark (got this from online)
-    int iter = 10000;
+    int iter = 100;
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
@@ -43,16 +43,16 @@ int main(){
     float time = 0;
     cudaEventElapsedTime(&time, start, stop);
     float iter_time = time / iter;
-    std::cout << "Avg Time: " << iter_time << " milliseconds \n";
+    // std::cout << "Avg Time: " << iter_time << " milliseconds \n";
 
     // verify copy worked
     // move device back to temp in host
     cudaDeviceSynchronize();
-    cudaMemcpy(temp_h_A, d_A, rows * cols * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(temp_h_A, d_A, rows * sizeof(float), cudaMemcpyDeviceToHost);
     cudaDeviceSynchronize();
     for (int i = 0; i < rows; i++) {
-        if (h_A[cols * i] != temp_h_A[cols * i]) {
-            printf("%f %f \n", h_A[cols * i] , temp_h_A[cols * i]);
+        if (h_A[cols * i] != temp_h_A[i]) {
+            std::cout << "Failure!" << "\n";
             // this fails!
             break;
         }

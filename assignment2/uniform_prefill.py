@@ -1,8 +1,9 @@
 import torch
 from transformers import AutoTokenizer
+import time
 import sys
 sys.path.append("../")  # Adjust the path to import the helper module
-from helper import WeightManager, apply_batched_rope, extract_model_weights
+from helper import WeightManager, apply_batched_rope, extract_model_weights, prefill_input
 
 
 
@@ -126,33 +127,55 @@ class Engine:
     
 
     
-    def generate_batched(self, input_string, rounds=20):
+    def generate_batched(self, input_string, rounds=20, benchmark = False):
         input_ids_list = self.tokenizer(input_string, return_tensors="pt", padding=False).input_ids
-        print("Input String:", input_string)
+        if (benchmark):
+            input_ids_list = input_ids_list[:, 0:512]
+            assert(len(input_ids_list[0]) == 512)
 
-        print("Token IDs:", input_ids_list)
         output_ids_list = input_ids_list.clone().to('cuda')
 
         new_token = self.run(output_ids_list, prefill=True)
         output_ids_list = torch.cat((output_ids_list, new_token.unsqueeze(1)), dim=1)
 
         for round in range(rounds - 1):
-            print(f"Round {round}")
             new_token = self.run(output_ids_list[:, -1:], prefill=False)
             output_ids_list = torch.cat((output_ids_list, new_token.unsqueeze(1)), dim=1)
 
         output_text = self.tokenizer.batch_decode(output_ids_list, skip_special_tokens=True)
         return output_text
+########################################
+# benchmarking
+########################################
+
+def warmup(engine):
+    prompt = "Finish this story: " + prefill_input
+    input_string_list = [prompt for _ in range(1)]
+    output_text = engine.generate_batched(input_string_list, rounds=20)
+
+def benchmark():
+    engine = Engine()
+    warmup(engine)
+    prompt = "Finish this story: " + prefill_input
+    for i in range(0, 6 + 1):
+        num_batch = 2 ** i
+        input_string_list = [prompt for _ in range(num_batch)]
+        start_time = time.time()
+        output_text = engine.generate_batched(input_string_list, rounds=128, benchmark=True)
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        print(str(num_batch) + ",", str(elapsed_time) + ",", str(128 * num_batch / elapsed_time))
 
 ########################################
 # Main Loop: Text Generation
 ########################################
 if __name__ == "__main__":
-    input_string = "Hi, who are you?"
-    input_string_list = [input_string for _ in range(10)]
-    another_input_string = "Hi, how are you?"
-    for _ in range(10):
-        input_string_list.append(another_input_string)
-    engine = Engine()
-    output_text = engine.generate_batched(input_string_list, rounds=20)
-    print("Generated Text:", output_text)
+    benchmark()
+    # input_string = "Hi, who are you?"
+    # input_string_list = [input_string for _ in range(10)]
+    # another_input_string = "Hi, how are you?"
+    # for _ in range(10):
+    #     input_string_list.append(another_input_string)
+    # engine = Engine()
+    # output_text = engine.generate_batched(input_string_list, rounds=20)
+    # print("Generated Text:", output_text)
