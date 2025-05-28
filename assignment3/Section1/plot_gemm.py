@@ -25,4 +25,4 @@ for N, K in shapes:
     plt.grid(True)
     plt.legend()
     plt.tight_layout()
-    plt.show()
+    plt.savefig(f'cublas_cutlass_{N}_{K}.png')

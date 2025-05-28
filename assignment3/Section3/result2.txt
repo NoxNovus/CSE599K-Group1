@@ -1,0 +1,45 @@
+
+Running with -b 1 -p 256 -d 128
+>>> Prefill time: 1.5947 seconds
+>>> Decode time: 1.9428 seconds
+>>> Total time: 3.5604 seconds
+
+Running with -b 1 -p 512 -d 128
+>>> Prefill time: 1.7349 seconds
+>>> Decode time: 1.9353 seconds
+>>> Total time: 3.6833 seconds
+
+Running with -b 1 -p 1024 -d 128
+>>> Prefill time: 1.3501 seconds
+>>> Decode time: 1.9239 seconds
+>>> Total time: 3.2989 seconds
+
+Running with -b 1 -p 2048 -d 128
+>>> Prefill time: 1.0951 seconds
+>>> Decode time: 1.9598 seconds
+>>> Total time: 3.0809 seconds
+
+Running with -b 1 -p 4096 -d 128
+>>> Prefill time: 2.1491 seconds
+>>> Decode time: 1.9146 seconds
+>>> Total time: 4.0794 seconds
+
+Running with -b 1 -p 8192 -d 128
+>>> Prefill time: 1.5508 seconds
+>>> Decode time: 1.9365 seconds
+>>> Total time: 3.5057 seconds
+
+Running with -b 1 -p 16384 -d 128
+>>> Prefill time: 2.2964 seconds
+>>> Decode time: 1.9332 seconds
+>>> Total time: 4.2487 seconds
+
+Running with -b 1 -p 32768 -d 128
+>>> Prefill time: 1.4401 seconds
+>>> Decode time: 1.9310 seconds
+>>> Total time: 3.4164 seconds
+
+Running with -b 1 -p 65536 -d 128
+>>> Prefill time: 2.0323 seconds
+>>> Decode time: 1.9384 seconds
+>>> Total time: 4.0095 seconds

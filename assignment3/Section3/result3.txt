@@ -1,0 +1,55 @@
+
+Running with -b 1 -p 128 -d 128
+>>> Prefill time: 1.6926 seconds
+>>> Decode time: 1.9280 seconds
+>>> Total time: 3.6346 seconds
+
+Running with -b 2 -p 128 -d 128
+>>> Prefill time: 1.6083 seconds
+>>> Decode time: 2.0114 seconds
+>>> Total time: 3.6316 seconds
+
+Running with -b 4 -p 128 -d 128
+>>> Prefill time: 0.9665 seconds
+>>> Decode time: 1.9853 seconds
+>>> Total time: 2.9637 seconds
+
+Running with -b 8 -p 128 -d 128
+>>> Prefill time: 1.8744 seconds
+>>> Decode time: 2.0460 seconds
+>>> Total time: 3.9344 seconds
+
+Running with -b 16 -p 128 -d 128
+>>> Prefill time: 1.3045 seconds
+>>> Decode time: 2.0718 seconds
+>>> Total time: 3.4018 seconds
+
+Running with -b 32 -p 128 -d 128
+>>> Prefill time: 0.9838 seconds
+>>> Decode time: 2.0754 seconds
+>>> Total time: 3.0740 seconds
+
+Running with -b 64 -p 128 -d 128
+>>> Prefill time: 1.4951 seconds
+>>> Decode time: 2.1985 seconds
+>>> Total time: 3.7100 seconds
+
+Running with -b 128 -p 128 -d 128
+>>> Prefill time: 1.8516 seconds
+>>> Decode time: 2.3656 seconds
+>>> Total time: 4.2374 seconds
+
+Running with -b 256 -p 128 -d 128
+>>> Prefill time: 2.1315 seconds
+>>> Decode time: 2.6290 seconds
+>>> Total time: 4.7961 seconds
+
+Running with -b 512 -p 128 -d 128
+>>> Prefill time: 1.5941 seconds
+>>> Decode time: 3.6795 seconds
+>>> Total time: 5.3277 seconds
+
+Running with -b 1024 -p 128 -d 128
+>>> Prefill time: 1.8929 seconds
+>>> Decode time: 6.2272 seconds
+>>> Total time: 8.1865 seconds

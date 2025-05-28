@@ -1,0 +1,30 @@
+
+Running with -b 128 -p 1024 -d 32
+>>> Prefill time: 1.6343 seconds
+>>> Decode time: 0.6446 seconds
+>>> Total time: 2.3640 seconds
+
+Running with -b 128 -p 1024 -d 64
+>>> Prefill time: 1.8967 seconds
+>>> Decode time: 1.1660 seconds
+>>> Total time: 3.1198 seconds
+
+Running with -b 128 -p 1024 -d 128
+>>> Prefill time: 1.6730 seconds
+>>> Decode time: 2.3275 seconds
+>>> Total time: 4.0574 seconds
+
+Running with -b 128 -p 1024 -d 256
+>>> Prefill time: 1.8589 seconds
+>>> Decode time: 4.5414 seconds
+>>> Total time: 6.4574 seconds
+
+Running with -b 128 -p 1024 -d 512
+>>> Prefill time: 1.9771 seconds
+>>> Decode time: 9.2372 seconds
+>>> Total time: 11.2713 seconds
+
+Running with -b 128 -p 1024 -d 1024
+>>> Prefill time: 1.5433 seconds
+>>> Decode time: 19.9068 seconds
+>>> Total time: 21.5321 seconds
