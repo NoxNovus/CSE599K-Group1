@@ -21,11 +21,7 @@ torch.cuda.set_device(dist.get_rank())
 
 # === Model Parameters ===
 # Path to the pretrained model weights
-<<<<<<< HEAD
 weight_path = "/model/Meta-Llama-3-8B-Instruct"
-=======
-weight_path = "/data/Meta-Llama-3-8B-Instruct"
->>>>>>> be06535f3c344d180f6ca34ae3f12842de2dfdc7
 
 # LLaMA-3 8B has 32 transformer layers
 layers = 32
@@ -41,11 +37,7 @@ intermediate_dim = 14336  # Intermediate dimension for MLP (FFN)
 # WeightManager loads the weights from safetensors
 
 # Load tokenizer for text encoding/decoding
-<<<<<<< HEAD
 tokenizer = AutoTokenizer.from_pretrained("/model/Meta-Llama-3-8B-Instruct")
-=======
-tokenizer = AutoTokenizer.from_pretrained("meta-llama/Meta-Llama-3-8B-Instruct")
->>>>>>> be06535f3c344d180f6ca34ae3f12842de2dfdc7
 weight_manager = WeightManager()
 weight_manager.load_from_safe_tensor(weight_path)
 weights = extract_model_weights(weight_manager.weight_map, layers)
@@ -88,7 +80,6 @@ def run_one_iteration(input_ids, rank, world_size):
         # assuming that the weights of q_proj, k_proj, v_proj are split in a column-wise (head) manner
         # hint: use rank, local_q_heads, local_kv_heads, head_dim to figure out the correct slice
         # hint: to debug, compare the intermediate outputs with the original implementation in transformer-w3l1.py
-<<<<<<< HEAD
         rank = dist.get_rank()
         left_q = rank * local_q_heads * head_dim
         right_q = left_q + local_q_heads * head_dim
@@ -101,12 +92,6 @@ def run_one_iteration(input_ids, rank, world_size):
         
         k = x.matmul(self_attn_k_proj_weight[layer][left_kv:right_kv].t()) # O: (seq_len, num_kv_heads * head_dim): (seq_len, 8 * 128)
         v = x.matmul(self_attn_v_proj_weight[layer][left_kv:right_kv].t()) # O: (seq_len, num_kv_heads * head_dim): (seq_len, 8 * 128)
-=======
-        
-        # q = 
-        # k = 
-        # v = 
->>>>>>> be06535f3c344d180f6ca34ae3f12842de2dfdc7
 
         # Apply rotary position embeddings
         apply_rope(q, output=q, head_dim=head_dim, offset=0)
@@ -134,7 +119,6 @@ def run_one_iteration(input_ids, rank, world_size):
         # TODO: generate the o_proj_local vector
         # assuming that the weights of o_proj are split in a row-wise manner
         # hint: use rank, local_hidden_dim to figure out the correct slice
-<<<<<<< HEAD
         # o_proj_residual = attn_output.matmul(o_proj_weight[layer].t()) + hidden_state  
         left_o = rank * local_hidden_dim
         right_o = left_o + local_hidden_dim
@@ -144,12 +128,6 @@ def run_one_iteration(input_ids, rank, world_size):
         # TODO: perform the all-reduce operation
         # hint: use dist.all_reduce 
         dist.all_reduce(o_proj_local)
-=======
-        # o_proj_local = 
-        
-        # TODO: perform the all-reduce operation
-        # hint: use dist.all_reduce 
->>>>>>> be06535f3c344d180f6ca34ae3f12842de2dfdc7
         
         o_proj_residual = o_proj_local + hidden_state  # Add residual
 
@@ -162,7 +140,6 @@ def run_one_iteration(input_ids, rank, world_size):
         # TODO: generate the up_local and gate_local vectors
         # assuming that the weights of up_proj and gate_proj are split in a column-wise manner
         # hint: use rank, local_intermediate_dim to figure out the correct slice
-<<<<<<< HEAD
 
 
         left_up = rank * local_intermediate_dim
@@ -189,19 +166,6 @@ def run_one_iteration(input_ids, rank, world_size):
 
         # TODO: perform the all-reduce operation
         dist.all_reduce(down_local)
-=======
-        # up_local = 
-        # gate_local = 
-
-        # SwiGLU activation (SiLU * linear)
-        activation_output = up_local * F.silu(gate_local)
-
-        # TODO: generate the down_local vector
-        # assuming that the weights of down_proj are split in a row-wise manner
-        # down_local = 
-
-        # TODO: perform the all-reduce operation
->>>>>>> be06535f3c344d180f6ca34ae3f12842de2dfdc7
 
         # Add residual
         hidden_state = down_local + o_proj_residual

@@ -247,13 +247,9 @@ class Engine:
                     pieces.append(req.output_token_ids[-1:])
                     indptr.append(indptr[-1] + 1)
                 else:                     # prefill
-<<<<<<< HEAD
                     pieces.append(req.scheduling_pf_tokens)
                     indptr.append(indptr[-1] + req.scheduling_length)
                     # pass
-=======
-                    pass
->>>>>>> be06535f3c344d180f6ca34ae3f12842de2dfdc7
                     #########
                     # FIXME #
                     #########
@@ -277,12 +273,9 @@ class Engine:
             # ----------------------------------------------------------------
             for idx, req in enumerate(requests):
                 cache = self.kv_cache_map[req.request_id]
-<<<<<<< HEAD
 
                 tokens_to_add = 1 if idx < num_decode_req else req.scheduling_length
                 cache.allocate_tokens(tokens_to_add)
-=======
->>>>>>> be06535f3c344d180f6ca34ae3f12842de2dfdc7
                 #########
                 # FIXME #
                 #########
@@ -298,7 +291,6 @@ class Engine:
             # ----------------------------------------------------------------
             # 4) Plan FlashInfer execution for this micro-batch
             # ----------------------------------------------------------------
-<<<<<<< HEAD
             if not len(requests) - num_decode_req == 0:
                 self.prefill_wrapper.plan(
                     qo_indptr=indptr_tensor[num_decode_req:],
@@ -322,16 +314,11 @@ class Engine:
                     head_dim=self.head_dim,
                     page_size=self.page_size,
                 )
-=======
->>>>>>> be06535f3c344d180f6ca34ae3f12842de2dfdc7
             #########
             # FIXME #
             #########
 
-<<<<<<< HEAD
 
-=======
->>>>>>> be06535f3c344d180f6ca34ae3f12842de2dfdc7
             # ----------------------------------------------------------------
             # 5) Forward pass through all *transformer* layers
             # ----------------------------------------------------------------
@@ -394,7 +381,6 @@ class Engine:
                 #########
                 # FIXME #
                 #########
-<<<<<<< HEAD
                 intermed = []
                 if num_decode_req > 0:
                     intermed.append(self.decode_wrapper.run(
@@ -411,8 +397,6 @@ class Engine:
 
                 attn_out = torch.cat(intermed, dim=0)
                 attn_out = attn_out.reshape(attn_out.shape[0], -1)
-=======
->>>>>>> be06535f3c344d180f6ca34ae3f12842de2dfdc7
                 
                 # Residual connection
                 hidden = attn_out.matmul(self.weights["o_proj_weight"][layer].T) + hidden

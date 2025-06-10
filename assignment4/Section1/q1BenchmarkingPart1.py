@@ -42,5 +42,4 @@ while not scheduler.finished():
     scheduler.run()
 continiousEnd = time.time()
 continiousTime = continiousEnd - continiousStart
-print(f"End to end execution time of continious scheduling with 10000 requests is: {naiveTime:.4f} seconds")
-
+print(f"End to end execution time of continious scheduling with 10000 requests is: {continiousTime:.4f} seconds")

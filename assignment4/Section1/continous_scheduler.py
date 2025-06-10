@@ -30,14 +30,11 @@ class Scheduler:
         #########
         # FIXME #
         #########
-<<<<<<< HEAD
         while (len(self.pending_input_req) > 0 and self.get_req_batch_size() < self.req_batch_size):
             inputr = self.pending_input_req.pop(0)
             pids = self.engine.tokenizer(inputr.input_str, return_tensors="pt").input_ids[0]
             self.scheduled_prefill_req.append(Request(self.unique_req_id, pids, inputr.output_len))
             self.unique_req_id += 1
-=======
->>>>>>> be06535f3c344d180f6ca34ae3f12842de2dfdc7
 
         # Build the list of requests to send to the engine
         request_list_total = []
@@ -45,35 +42,28 @@ class Scheduler:
         #########
         # FIXME #
         #########
-<<<<<<< HEAD
         decode_num = len(self.decode_req)
         request_list_total.extend(self.decode_req)
         request_list_total.extend(self.scheduled_prefill_req)
 
 
-=======
->>>>>>> be06535f3c344d180f6ca34ae3f12842de2dfdc7
         new_tokens = self.engine.run(request_list_total, decode_num)
 
         # Append newly generated tokens to each request's output buffer
         #########
         # FIXME #
         #########
-<<<<<<< HEAD
         for i, request_i in enumerate(request_list_total):
             new_tok = new_tokens[i].unsqueeze(0)
             request_i.output_token_ids = torch.cat(
                 [request_i.output_token_ids, new_tok], dim=0
             )
-=======
->>>>>>> be06535f3c344d180f6ca34ae3f12842de2dfdc7
 
         # Check which decode requests have finished and remove from the queue
         ongoing_decode: list[Request] = []
         #########
         # FIXME #
         #########
-<<<<<<< HEAD
         for req in self.decode_req:
             if (req.current_length >= (req.output_length + req.prompt_length)):
                 self.completed.append(req)
@@ -82,19 +72,14 @@ class Scheduler:
                     del self.engine.kv_cache_map[req.request_id]
             else:
                 ongoing_decode.append(req)
-=======
->>>>>>> be06535f3c344d180f6ca34ae3f12842de2dfdc7
         self.decode_req = ongoing_decode
 
         # Move scheduled prefill requests into decode queue
         #########
         # FIXME #
         #########
-<<<<<<< HEAD
         self.decode_req.extend(self.scheduled_prefill_req)
         self.scheduled_prefill_req.clear()
-=======
->>>>>>> be06535f3c344d180f6ca34ae3f12842de2dfdc7
     
     def print_completed(self):
         for i, req in enumerate(self.completed):

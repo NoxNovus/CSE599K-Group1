@@ -53,7 +53,6 @@ class Scheduler:
         # Limit the budget, and chunk the request as necessary.
         # If a request is chunked, keep it still in the pending prefill queue. Otherwise, remove from the queue.
         # Set tokens of the current chunk in the request scheduling_pf_tokens and set remaining_prefill_tokens properly
-<<<<<<< HEAD
         remaining = []
         for req in self.pending_prefill:
             if available_budget <= 0:
@@ -80,8 +79,6 @@ class Scheduler:
             available_budget -= chunksize
 
         self.pending_prefill = remaining
-=======
->>>>>>> be06535f3c344d180f6ca34ae3f12842de2dfdc7
         #########
         # FIXME #
         #########
@@ -90,18 +87,14 @@ class Scheduler:
         #########
         # FIXME #
         #########
-<<<<<<< HEAD
         request_eng_list = []
         request_eng_list.extend(self.decode_req)
         request_eng_list.extend(self.scheduled_prefill_req)
-=======
->>>>>>> be06535f3c344d180f6ca34ae3f12842de2dfdc7
 
         # Append newly generated tokens to each request's output buffer
         # For prefill, only append if this cycle is the last chunk
         #########
         # FIXME #
-<<<<<<< HEAD
         #########  
         if len(request_eng_list) == 0:
             return
@@ -113,15 +106,11 @@ class Scheduler:
             elif request.last_chunk:
                 request.output_token_ids = torch.cat([request.output_token_ids, new_toks[i].unsqueeze(0)], dim=0)
 
-=======
-        #########
->>>>>>> be06535f3c344d180f6ca34ae3f12842de2dfdc7
 
         # Check which decode requests have finished
         #########
         # FIXME #
         #########
-<<<<<<< HEAD
         ongoing_decode = []
         for req in self.decode_req:
             if (req.current_length >= (req.output_length + req.prompt_length)):
@@ -129,20 +118,15 @@ class Scheduler:
             else:
                 ongoing_decode.append(req)
         self.decode_req = ongoing_decode
-=======
->>>>>>> be06535f3c344d180f6ca34ae3f12842de2dfdc7
 
         # Move scheduled prefill requests into decode queue
         #########
         # FIXME #
         #########
-<<<<<<< HEAD
         for req in self.scheduled_prefill_req:
             if req.last_chunk:
                 self.decode_req.append(req)
         self.scheduled_prefill_req.clear()
-=======
->>>>>>> be06535f3c344d180f6ca34ae3f12842de2dfdc7
     
     def print_completed(self):
         for i, req in enumerate(self.completed):

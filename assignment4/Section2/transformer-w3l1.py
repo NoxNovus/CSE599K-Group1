@@ -17,26 +17,16 @@ dist.init_process_group(backend="nccl", rank=0, world_size=1)
 torch.cuda.set_device(0)
 
 
-<<<<<<< HEAD
 weight_path = "/model/Meta-Llama-3-8B-Instruct"
 # weight_path = "/data/Meta-Llama-3-8B-Instruct"
-=======
-
-weight_path = "/data/Meta-Llama-3-8B-Instruct"
->>>>>>> be06535f3c344d180f6ca34ae3f12842de2dfdc7
 
 layers = 32
 num_qo_heads = 32      # Total number of query/output heads
 head_dim = 128         # Dimensionality of each attention head, (hidden_dim / # of heads)
 num_kv_heads = 8       # Total number of key/value heads
 # 4 query heads share 1 key/value head. This is called grouped query attention
-<<<<<<< HEAD
 tokenizer = AutoTokenizer.from_pretrained("/model/Meta-Llama-3-8B-Instruct")
 # tokenizer = AutoTokenizer.from_pretrained("meta-llama/Meta-Llama-3-8B-Instruct")
-=======
-
-tokenizer = AutoTokenizer.from_pretrained("meta-llama/Meta-Llama-3-8B-Instruct")
->>>>>>> be06535f3c344d180f6ca34ae3f12842de2dfdc7
 # Initialize and load model weights using the helper module
 weight_manager = WeightManager()
 # Safetensors are a serialization format for tensors that is more efficient and safer
@@ -239,14 +229,7 @@ if __name__ == "__main__":
     
     # run 10 times and time it
     start_time = time.time()
-<<<<<<< HEAD
     for i in tqdm(range(100)):
         generate()
     end_time = time.time()
     print(f"Average time taken: {(end_time - start_time) / 100} seconds")
-=======
-    for i in tqdm(range(10)):
-        generate()
-    end_time = time.time()
-    print(f"Average time taken: {(end_time - start_time) / 10} seconds")
->>>>>>> be06535f3c344d180f6ca34ae3f12842de2dfdc7

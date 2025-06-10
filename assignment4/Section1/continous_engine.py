@@ -190,11 +190,7 @@ class Engine:
 
         # ---- global paged KV-cache ---------------------------------------
         self.page_size = 16
-<<<<<<< HEAD
         self.max_pages = 16_000  # total pages in the pool (across *all* layers)
-=======
-        self.max_pages = 20_000  # total pages in the pool (across *all* layers)
->>>>>>> be06535f3c344d180f6ca34ae3f12842de2dfdc7
         self.pool = DistKVPool(
             num_layers=self.layers,
             num_kv_heads=self.num_kv_heads,
@@ -280,7 +276,6 @@ class Engine:
             # 4) Plan FlashInfer execution for this micro-batch
             # ----------------------------------------------------------------
             if not len(requests) - num_decode_req == 0:
-<<<<<<< HEAD
                 self.prefill_wrapper.plan(
                     qo_indptr=indptr_tensor[num_decode_req:],
                     paged_kv_indices=kv_indices,
@@ -293,14 +288,11 @@ class Engine:
                     page_size=self.page_size,
                     causal=True,
                 )
-=======
->>>>>>> be06535f3c344d180f6ca34ae3f12842de2dfdc7
                 pass
                 #########
                 # FIXME #
                 #########
             if num_decode_req > 0:
-<<<<<<< HEAD
                 self.decode_wrapper.plan(
                     indptr=kv_indptr,
                     indices=kv_indices,
@@ -310,8 +302,6 @@ class Engine:
                     head_dim=self.head_dim,
                     page_size=self.page_size,
                 )
-=======
->>>>>>> be06535f3c344d180f6ca34ae3f12842de2dfdc7
                 pass
                 #########
                 # FIXME #
@@ -375,7 +365,6 @@ class Engine:
                 )
 
                 # ---- Attention itself --------------------------------------
-<<<<<<< HEAD
                 attn_out = None
 
                 intermed = []
@@ -394,18 +383,6 @@ class Engine:
 
                 attn_out = torch.cat(intermed, dim=0)
                 attn_out = attn_out.reshape(attn_out.shape[0], -1)
-=======
-                # run prefill and decode wrappers. Note that for the prefill wrapper, if qo_indptr does not start with 0, first qo_indptr[0] rows of the output tensor will be empty
-                attn_out = None
-                #########
-                # FIXME #
-                #########
-                
-                # aggregate the decode and prefill outputs
-                #########
-                # FIXME #
-                #########      
->>>>>>> be06535f3c344d180f6ca34ae3f12842de2dfdc7
                           
                 # Residual connection
                 hidden = attn_out.matmul(self.weights["o_proj_weight"][layer].T) + hidden
@@ -424,7 +401,6 @@ class Engine:
 
             # ----------------------------------------------------------------
             # 6) Final language-model head ----------------------------------
-<<<<<<< HEAD
             # switching to last token indices like mentioned on the Ed board post
             last_token_indices = (indptr_tensor[1:] - 1).long()
             hidden_last = hidden[last_token_indices]
@@ -440,14 +416,6 @@ class Engine:
             # ).matmul(self.weights["lm_head_weight"].T)
 
             # sample_ids = torch.argmax(logits, dim=-1)
-=======
-            rms = torch.sqrt(hidden.square().mean(-1, keepdim=True) + 1e-5)
-            logits = (
-                (hidden / rms).to(torch.float16) * self.weights["model_layernorm_weight"]
-            ).matmul(self.weights["lm_head_weight"].T)
-
-            sample_ids = torch.argmax(logits, dim=-1)
->>>>>>> be06535f3c344d180f6ca34ae3f12842de2dfdc7
 
             # Extract *new* token for each request (last token of each row)
             last_token_indices = (indptr_tensor[1:] - 1).long()
